@@ -2,10 +2,12 @@
 
 This repository contains the code for the paper [Improved Regularization of Convolutional Neural Networks with Cutout](https://arxiv.org/abs/1708.04552). 
 
+这是我们小组的期末pj作业
+
 ## Introduction
 
 Cutout is a simple regularization method for convolutional neural networks which consists of masking out random sections of input images during training. This technique simulates occluded examples and encourages the model to take more minor features into consideration when making decisions, rather than relying on the presence of a few major features.  
-  
+
 ![Cutout applied to CIFAR-10](https://github.com/uoguelph-mlrg/Cutout/blob/master/images/cutout_on_cifar10.jpg "Cutout applied to CIFAR-10")
 
 Bibtex:  
@@ -29,7 +31,7 @@ Test error (%, flip/translation augmentation, mean/std normalization, mean of 5 
 | **Network** | **CIFAR-10** | **CIFAR-100** |
 | ----------- | ------------ | ------------- |
 | ResNet18    | 4.72         | 22.46         |
-| ResNet18 + cutout | 3.99   | 21.96         |  
+| ResNet18 + cutout | 3.99   | 21.96         |
 
 To train ResNet18 on CIFAR10 with data augmentation and cutout:    
 `python train.py --dataset cifar10 --model resnet18 --data_augmentation --cutout --length 16`

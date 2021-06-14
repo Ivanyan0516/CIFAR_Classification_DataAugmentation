@@ -22,6 +22,16 @@ from util.cutout import Cutout
 from model.resnet import ResNet18
 from model.wide_resnet import WideResNet
 
+"""
+add by yanfan
+tensorboard 训练过程中误差精确度曲线的可视化
+结果可视化
+"""
+from tensorboardX import SummaryWriter
+SumWriter = SummaryWriter(log_dir = "logs/log_cutout")
+
+
+
 model_options = ['resnet18', 'wideresnet']
 dataset_options = ['cifar10', 'cifar100', 'svhn']
 
@@ -57,7 +67,7 @@ torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
-test_id = args.dataset + '_' + args.model
+test_id = args.dataset + '_' + args.model + '_'+ 'cutout'
 
 print(args)
 
@@ -75,7 +85,7 @@ if args.data_augmentation:
     train_transform.transforms.append(transforms.RandomHorizontalFlip())
 train_transform.transforms.append(transforms.ToTensor())
 train_transform.transforms.append(normalize)
-if args.cutout:
+if args.cutout:     ##apply cutout
     train_transform.transforms.append(Cutout(n_holes=args.n_holes, length=args.length))
 
 
@@ -190,6 +200,8 @@ for epoch in range(args.epochs):
     xentropy_loss_avg = 0.
     correct = 0.
     total = 0.
+    train_loss = 0.
+    accuracy = 0.
 
     progress_bar = tqdm(train_loader)
     for i, (images, labels) in enumerate(progress_bar):
@@ -212,19 +224,33 @@ for epoch in range(args.epochs):
         total += labels.size(0)
         correct += (pred == labels.data).sum().item()
         accuracy = correct / total
-
+        train_loss = xentropy_loss_avg/(i+1)
+        
+#         niter = epoch*(len(train_loader))+i+1
+#         if niter%100==0:
+#             SumWriter.add_scalar("train_loss",train_loss.item()/niter,global_step=niter)
+            
+        
         progress_bar.set_postfix(
             xentropy='%.3f' % (xentropy_loss_avg / (i + 1)),
             acc='%.3f' % accuracy)
-
+        
+    train_loss = xentropy_loss_avg/len(train_loader)
+    train_acc = accuracy
+    
     test_acc = test(test_loader)
     tqdm.write('test_acc: %.3f' % (test_acc))
 
-    scheduler.step(epoch)  # Use this line for PyTorch <1.4
-    # scheduler.step()     # Use this line for PyTorch >=1.4
+    #scheduler.step(epoch)  # Use this line for PyTorch <1.4
+    scheduler.step()     # Use this line for PyTorch >=1.4
 
     row = {'epoch': str(epoch), 'train_acc': str(accuracy), 'test_acc': str(test_acc)}
     csv_logger.writerow(row)
+    
+    SumWriter.add_scalar("test_acc",test_acc,global_step=epoch+1)      ## test_acc可视化记录
+    SumWriter.add_scalar("train_acc",accuracy,global_step=epoch+1)      ## train_acc可视化记录
+    SumWriter.add_scalar("train_loss",train_loss,global_step=epoch+1)      ## train_loss可视化记录
+
 
 torch.save(cnn.state_dict(), 'checkpoints/' + test_id + '.pt')
 csv_logger.close()

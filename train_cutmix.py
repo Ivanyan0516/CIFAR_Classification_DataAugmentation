@@ -1,6 +1,4 @@
-# run train.py --dataset cifar10 --model resnet18 --data_augmentation --cutout --length 16
-# run train.py --dataset cifar100 --model resnet18 --data_augmentation --cutout --length 8
-# run train.py --dataset svhn --model wideresnet --learning_rate 0.01 --epochs 160 --cutout --length 20
+# python train_cutmix.py --dataset cifar10 --model resnet18  --epochs 200 --beta 1 --cutmix_prob 1
 
 import pdb
 import argparse
@@ -28,7 +26,7 @@ tensorboard 训练过程中误差精确度曲线的可视化
 结果可视化
 """
 from tensorboardX import SummaryWriter
-SumWriter = SummaryWriter(log_dir = "logs/log_cutout")
+SumWriter = SummaryWriter(log_dir = "logs/log_cutmix")
 
 
 
@@ -58,6 +56,10 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='enables CUDA training')
 parser.add_argument('--seed', type=int, default=0,
                     help='random seed (default: 1)')
+parser.add_argument('--beta', default=0, type=float,
+                    help='hyperparameter beta')
+parser.add_argument('--cutmix_prob', default=0, type=float,
+                    help='cutmix probability')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -67,7 +69,7 @@ torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
-test_id = args.dataset + '_' + args.model + '_'+ 'cutout'
+test_id = args.dataset + '_' + args.model + '_'+ 'cutmix'
 
 print(args)
 
@@ -115,17 +117,7 @@ elif args.dataset == 'cifar100':
                                      train=False,
                                      transform=test_transform,
                                      download=True)
-elif args.dataset == 'svhn':
-    num_classes = 10
-    train_dataset = datasets.SVHN(root='data/',
-                                  split='train',
-                                  transform=train_transform,
-                                  download=True)
 
-    extra_dataset = datasets.SVHN(root='data/',
-                                  split='extra',
-                                  transform=train_transform,
-                                  download=True)
 
     # Combine both training splits (https://arxiv.org/pdf/1605.07146.pdf)
     data = np.concatenate([train_dataset.data, extra_dataset.data], axis=0)
@@ -194,6 +186,23 @@ def test(loader):
     cnn.train()
     return val_acc
 
+def rand_bbox(size, lam):
+    W = size[2]
+    H = size[3]
+    cut_rat = np.sqrt(1. - lam)
+    cut_w = np.int(W * cut_rat)
+    cut_h = np.int(H * cut_rat)
+
+    # uniform
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+
+    return bbx1, bby1, bbx2, bby2
 
 for epoch in range(args.epochs):
 
@@ -210,10 +219,29 @@ for epoch in range(args.epochs):
         images = images.cuda()
         labels = labels.cuda()
 
-        cnn.zero_grad()
-        pred = cnn(images)
+        r = np.random.rand(1)
+        if args.beta > 0 and r < args.cutmix_prob:
+            # generate mixed sample
+            lam = np.random.beta(args.beta, args.beta)
+            rand_index = torch.randperm(images.size()[0]).cuda()
+            labels_a = labels
+            labels_b = labels[rand_index]
+            bbx1, bby1, bbx2, bby2 = rand_bbox(images.size(), lam)
+            images[:, :, bbx1:bbx2, bby1:bby2] = images[rand_index, :, bbx1:bbx2, bby1:bby2]
+            # adjust lambda to exactly match pixel ratio
+            lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (images.size()[-1] * images.size()[-2]))
+            # compute output
+            pred = cnn(images)
+            xentropy_loss = criterion(pred, labels_a) * lam + criterion(pred, labels_b) * (1. - lam)
+        else:
+            # compute output
+            pred = cnn(images)
+            xentropy_loss = criterion(pred, labels)
 
-        xentropy_loss = criterion(pred, labels)
+        cnn_optimizer.zero_grad()
+        # pred = cnn(images)
+        #
+        # xentropy_loss = criterion(pred, labels)
         xentropy_loss.backward()
         cnn_optimizer.step()
 

@@ -12,9 +12,9 @@ Our team members are Yanfan\Zhaobin\Liyingxue\Hongyuxin.
 
 -  **CutMix**  patches are cut and pasted among training images where the ground truth labels are also mixed proportionally to the area of the patches. By making efficient use of training pixels and retaining the regularization effect of regional dropout, CutMix consistently outperforms the state-of-the-art augmentation strategies on CIFAR  classification tasks.
 
-![image-20210620204822914](C:\Users\Ivan\AppData\Roaming\Typora\typora-user-images\image-20210620204822914.png)
+![image](https://github.com/Ivanyan0516/nndl-pj/tree/master/images/1.png)
 
-
+![image](https://github.com/Ivanyan0516/nndl-pj/tree/master/images/2.png)
 
 ## Results and Usage
 

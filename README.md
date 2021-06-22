@@ -45,5 +45,5 @@ To train ResNet18 on CIFAR10 with mixup:
 
 To train ResNet18 on CIFAR10(baseline):
 
-`python train.py --dataset cifar10 --model resnet18  `
+`python train_cutout.py --dataset cifar10 --model resnet18  `
 
